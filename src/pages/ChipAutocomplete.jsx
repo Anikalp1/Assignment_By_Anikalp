@@ -1,119 +1,119 @@
-import React, { useState } from 'react';
-import Select, { components } from 'react-select';
-
-const CustomOption = (props) => {
-  return (
-    <components.Option {...props}>
-      <span className="text-blue-500 font-semibold">{props.data.label.slice(0, 2)}</span>
-      <span className="text-gray-700">{props.data.label.slice(2)}</span>
-    </components.Option>
-  );
-};
+import React, { useState, useEffect } from 'react';
 
 const ChipAutoComplete = ({ options, placeholder, onChange }) => {
   const [selectedOptions, setSelectedOptions] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const [filteredOptions, setFilteredOptions] = useState([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleChange = (selectedValue) => {
-    setSelectedOptions(selectedValue);
-    setIsLoading(false);
-    if (onChange) {
-      onChange(selectedValue);
+  useEffect(() => {
+    if (inputValue) {
+      setIsLoading(true);
+      const timeoutId = setTimeout(() => {
+        const filtered = options.filter(option =>
+          option.label.toLowerCase().includes(inputValue.toLowerCase())
+        );
+        setFilteredOptions(filtered);
+        setIsLoading(false);
+      }, 500); // simulate network request
+      return () => clearTimeout(timeoutId);
+    } else {
+      setFilteredOptions([]);
+      setIsLoading(false);
+    }
+  }, [inputValue, options]);
+
+  const handleChange = (event) => {
+    setInputValue(event.target.value);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (option) => {
+    if (!selectedOptions.some(selected => selected.value === option.value)) {
+      const newSelectedOptions = [...selectedOptions, option];
+      setSelectedOptions(newSelectedOptions);
+      setInputValue('');
+      setFilteredOptions([]);
+      setIsLoading(false);
+      if (onChange) {
+        onChange(newSelectedOptions);
+      }
     }
   };
 
-  const handleInputChange = (inputValue) => {
-    setIsLoading(!!inputValue);
+  const handleRemove = (option) => {
+    const newSelectedOptions = selectedOptions.filter(
+      selected => selected.value !== option.value
+    );
+    setSelectedOptions(newSelectedOptions);
+    if (onChange) {
+      onChange(newSelectedOptions);
+    }
   };
 
-  const customStyles = {
-    control: (provided) => ({
-      ...provided,
-      backgroundColor: '#f0f0f0',
-      minHeight: '48px',
-      borderRadius: '12px',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-      borderColor: 'transparent',
-      '&:hover': {
-        borderColor: '#d1d5db',
-      },
-      display: 'flex',
-      alignItems: 'center',
-      paddingRight: '48px',
-      overflowX: 'auto',  // Added for horizontal scrolling
-      whiteSpace: 'nowrap', // Prevents line breaks
-    }),
-    multiValue: (provided) => ({
-      ...provided,
-      backgroundColor: '#ffffff',
-      borderRadius: '16px',
-      padding: '4px 12px',
-      display: 'inline-flex',  // Ensures chips are displayed inline
-      alignItems: 'center',
-      margin: '2px',
-    }),
-    multiValueLabel: (provided) => ({
-      ...provided,
-      color: '#374151',
-      fontWeight: '500',
-    }),
-    multiValueRemove: (provided) => ({
-      ...provided,
-      color: '#9ca3af',
-      cursor: 'pointer',
-      ':hover': {
-        backgroundColor: '#e5e7eb',
-        color: '#374151',
-      },
-    }),
-    input: (provided) => ({
-      ...provided,
-      marginLeft: '4px',
-      color: '#374151',
-      fontWeight: '500',
-    }),
-    placeholder: (provided) => ({
-      ...provided,
-      color: '#9ca3af',
-      fontWeight: '500',
-    }),
-    menu: (provided) => ({
-      ...provided,
-      marginTop: '8px',
-      borderRadius: '12px',
-      overflow: 'hidden',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    }),
-    menuList: (provided) => ({
-      ...provided,
-      padding: '0',
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isSelected ? '#e5e7eb' : state.isFocused ? '#f9fafb' : 'white',
-      color: '#374151',
-      padding: '10px 15px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-    }),
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      if (highlightedIndex >= 0) {
+        handleSelect(filteredOptions[highlightedIndex]);
+      } else if (filteredOptions.length > 0) {
+        handleSelect(filteredOptions[0]);
+      }
+      event.preventDefault();
+    } else if (event.key === 'ArrowDown') {
+      setHighlightedIndex((prevIndex) =>
+        prevIndex < filteredOptions.length - 1 ? prevIndex + 1 : 0
+      );
+    } else if (event.key === 'ArrowUp') {
+      setHighlightedIndex((prevIndex) =>
+        prevIndex > 0 ? prevIndex - 1 : filteredOptions.length - 1
+      );
+    }
   };
 
   return (
     <div className="relative w-full">
-      <Select
-        isMulti
-        options={options}
-        value={selectedOptions}
-        onChange={handleChange}
-        onInputChange={handleInputChange}
-        placeholder={placeholder}
-        styles={customStyles}
-        components={{ Option: CustomOption }}
-      />
-      {isLoading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="w-6 h-6 border-4 border-gray-300 border-t-blue-500 border-solid rounded-full animate-spin"></div>
+      <div className="flex flex-wrap items-center bg-gray-200 rounded-xl p-2 relative">
+        {selectedOptions.map(option => (
+          <div key={option.value} className="flex items-center bg-white rounded-full px-3 py-1 m-1">
+            <span className="text-gray-800 font-medium">{option.label}</span>
+            <button
+              type="button"
+              className="ml-2 text-gray-500 hover:text-gray-800"
+              onClick={() => handleRemove(option)}
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="flex-grow p-2 bg-transparent outline-none"
+        />
+        {isLoading && (
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+            <div className="w-6 h-6 border-4 border-gray-300 border-t-blue-500 border-solid rounded-full animate-spin"></div>
+          </div>
+        )}
+      </div>
+      {filteredOptions.length > 0 && (
+        <div className="absolute bg-white shadow-md rounded-xl mt-1 w-full z-10">
+          {filteredOptions.map((option, index) => (
+            <div
+              key={option.value}
+              className={`flex items-center p-2 cursor-pointer ${
+                index === highlightedIndex ? 'bg-gray-100' : ''
+              }`}
+              onClick={() => handleSelect(option)}
+            >
+              <span className="text-blue-500 font-semibold">{option.label.slice(0, 2)}</span>
+              <span className="text-gray-700">{option.label.slice(2)}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
